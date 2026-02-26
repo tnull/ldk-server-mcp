@@ -12,7 +12,9 @@ use serde_json::Value;
 
 pub const PARSE_ERROR: i64 = -32700;
 pub const METHOD_NOT_FOUND: i64 = -32601;
+#[allow(dead_code)]
 pub const INVALID_PARAMS: i64 = -32602;
+#[allow(dead_code)]
 pub const INTERNAL_ERROR: i64 = -32603;
 
 #[derive(Debug, Deserialize)]
