@@ -260,5 +260,37 @@ pub fn build_tool_registry() -> ToolRegistry {
 		|c, a| Box::pin(handlers::handle_export_pathfinding_scores(c, a)),
 	);
 
+	register(
+		&mut tools,
+		"graph_list_channels",
+		"List all known short channel IDs in the network graph",
+		schema::graph_list_channels_schema(),
+		|c, a| Box::pin(handlers::handle_graph_list_channels(c, a)),
+	);
+
+	register(
+		&mut tools,
+		"graph_get_channel",
+		"Get channel information from the network graph by short channel ID",
+		schema::graph_get_channel_schema(),
+		|c, a| Box::pin(handlers::handle_graph_get_channel(c, a)),
+	);
+
+	register(
+		&mut tools,
+		"graph_list_nodes",
+		"List all known node IDs in the network graph",
+		schema::graph_list_nodes_schema(),
+		|c, a| Box::pin(handlers::handle_graph_list_nodes(c, a)),
+	);
+
+	register(
+		&mut tools,
+		"graph_get_node",
+		"Get node information from the network graph by node ID",
+		schema::graph_get_node_schema(),
+		|c, a| Box::pin(handlers::handle_graph_get_node(c, a)),
+	);
+
 	ToolRegistry { tools }
 }

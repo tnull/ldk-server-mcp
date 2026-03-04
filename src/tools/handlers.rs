@@ -12,6 +12,7 @@ use ldk_server_client::ldk_server_protos::api::{
 	Bolt11ReceiveRequest, Bolt12ReceiveRequest, Bolt12SendRequest, CloseChannelRequest,
 	ConnectPeerRequest, DisconnectPeerRequest, ExportPathfindingScoresRequest,
 	ForceCloseChannelRequest, GetBalancesRequest, GetNodeInfoRequest, GetPaymentDetailsRequest,
+	GraphGetChannelRequest, GraphGetNodeRequest, GraphListChannelsRequest, GraphListNodesRequest,
 	ListChannelsRequest, ListForwardedPaymentsRequest, ListPaymentsRequest, OnchainReceiveRequest,
 	OnchainSendRequest, OpenChannelRequest, SignMessageRequest, SpliceInRequest, SpliceOutRequest,
 	SpontaneousSendRequest, UpdateChannelConfigRequest, VerifySignatureRequest,
@@ -586,4 +587,51 @@ pub async fn handle_export_pathfinding_scores(
 		.map_err(|e| e.message.clone())?;
 	let scores_hex = hex_encode(&response.scores);
 	Ok(json!({ "pathfinding_scores": scores_hex }))
+}
+
+pub async fn handle_graph_list_channels(
+	client: &LdkServerClient, _args: Value,
+) -> Result<Value, String> {
+	let response = client
+		.graph_list_channels(GraphListChannelsRequest {})
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_graph_get_channel(
+	client: &LdkServerClient, args: Value,
+) -> Result<Value, String> {
+	let short_channel_id = args
+		.get("short_channel_id")
+		.and_then(|v| v.as_u64())
+		.ok_or("Missing required parameter: short_channel_id")?;
+
+	let response = client
+		.graph_get_channel(GraphGetChannelRequest { short_channel_id })
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_graph_list_nodes(
+	client: &LdkServerClient, _args: Value,
+) -> Result<Value, String> {
+	let response =
+		client.graph_list_nodes(GraphListNodesRequest {}).await.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_graph_get_node(client: &LdkServerClient, args: Value) -> Result<Value, String> {
+	let node_id = args
+		.get("node_id")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: node_id")?
+		.to_string();
+
+	let response = client
+		.graph_get_node(GraphGetNodeRequest { node_id })
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
 }

@@ -491,3 +491,45 @@ pub fn export_pathfinding_scores_schema() -> Value {
 		"required": []
 	})
 }
+
+pub fn graph_list_channels_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {},
+		"required": []
+	})
+}
+
+pub fn graph_get_channel_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {
+			"short_channel_id": {
+				"type": "integer",
+				"description": "The short channel ID to look up"
+			}
+		},
+		"required": ["short_channel_id"]
+	})
+}
+
+pub fn graph_list_nodes_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {},
+		"required": []
+	})
+}
+
+pub fn graph_get_node_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {
+			"node_id": {
+				"type": "string",
+				"description": "The hex-encoded node ID to look up"
+			}
+		},
+		"required": ["node_id"]
+	})
+}
