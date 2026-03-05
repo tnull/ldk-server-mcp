@@ -12,7 +12,7 @@ use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
 
-const NUM_TOOLS: usize = 24;
+const NUM_TOOLS: usize = 28;
 
 fn test_cert_path() -> String {
 	std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -209,6 +209,94 @@ fn test_notification_no_response() {
 	// The first response we get should be for id 42, not for the notification
 	let resp = proc.recv();
 	assert_eq!(resp["id"], 42);
+}
+
+#[test]
+fn test_graph_list_channels_unreachable() {
+	let mut proc = McpProcess::spawn();
+
+	proc.send(&json!({
+		"jsonrpc": "2.0",
+		"id": 1,
+		"method": "tools/call",
+		"params": {
+			"name": "graph_list_channels",
+			"arguments": {}
+		}
+	}));
+
+	let resp = proc.recv();
+	assert_eq!(resp["jsonrpc"], "2.0");
+	assert_eq!(resp["id"], 1);
+	assert_eq!(resp["result"]["isError"], true);
+	let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+	assert!(!text.is_empty(), "Expected non-empty error message");
+}
+
+#[test]
+fn test_graph_get_channel_unreachable() {
+	let mut proc = McpProcess::spawn();
+
+	proc.send(&json!({
+		"jsonrpc": "2.0",
+		"id": 1,
+		"method": "tools/call",
+		"params": {
+			"name": "graph_get_channel",
+			"arguments": {"short_channel_id": 12345}
+		}
+	}));
+
+	let resp = proc.recv();
+	assert_eq!(resp["jsonrpc"], "2.0");
+	assert_eq!(resp["id"], 1);
+	assert_eq!(resp["result"]["isError"], true);
+	let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+	assert!(!text.is_empty(), "Expected non-empty error message");
+}
+
+#[test]
+fn test_graph_list_nodes_unreachable() {
+	let mut proc = McpProcess::spawn();
+
+	proc.send(&json!({
+		"jsonrpc": "2.0",
+		"id": 1,
+		"method": "tools/call",
+		"params": {
+			"name": "graph_list_nodes",
+			"arguments": {}
+		}
+	}));
+
+	let resp = proc.recv();
+	assert_eq!(resp["jsonrpc"], "2.0");
+	assert_eq!(resp["id"], 1);
+	assert_eq!(resp["result"]["isError"], true);
+	let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+	assert!(!text.is_empty(), "Expected non-empty error message");
+}
+
+#[test]
+fn test_graph_get_node_unreachable() {
+	let mut proc = McpProcess::spawn();
+
+	proc.send(&json!({
+		"jsonrpc": "2.0",
+		"id": 1,
+		"method": "tools/call",
+		"params": {
+			"name": "graph_get_node",
+			"arguments": {"node_id": "02deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"}
+		}
+	}));
+
+	let resp = proc.recv();
+	assert_eq!(resp["jsonrpc"], "2.0");
+	assert_eq!(resp["id"], 1);
+	assert_eq!(resp["result"]["isError"], true);
+	let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+	assert!(!text.is_empty(), "Expected non-empty error message");
 }
 
 #[test]
