@@ -9,8 +9,9 @@
 
 use ldk_server_client::client::LdkServerClient;
 use ldk_server_client::ldk_server_protos::api::{
-	Bolt11ReceiveRequest, Bolt12ReceiveRequest, Bolt12SendRequest, CloseChannelRequest,
-	ConnectPeerRequest, DisconnectPeerRequest, ExportPathfindingScoresRequest,
+	Bolt11ReceiveRequest, Bolt11ReceiveVariableAmountViaJitChannelRequest,
+	Bolt11ReceiveViaJitChannelRequest, Bolt12ReceiveRequest, Bolt12SendRequest,
+	CloseChannelRequest, ConnectPeerRequest, DisconnectPeerRequest, ExportPathfindingScoresRequest,
 	ForceCloseChannelRequest, GetBalancesRequest, GetNodeInfoRequest, GetPaymentDetailsRequest,
 	GraphGetChannelRequest, GraphGetNodeRequest, GraphListChannelsRequest, GraphListNodesRequest,
 	ListChannelsRequest, ListForwardedPaymentsRequest, ListPaymentsRequest, OnchainReceiveRequest,
@@ -93,6 +94,27 @@ fn build_channel_config(args: &Value) -> Option<ChannelConfig> {
 	})
 }
 
+fn build_bolt11_invoice_description(
+	args: &Value,
+) -> Result<Option<Bolt11InvoiceDescription>, String> {
+	let description_str = args.get("description").and_then(|v| v.as_str()).map(|s| s.to_string());
+	let description_hash =
+		args.get("description_hash").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+	match (description_str, description_hash) {
+		(Some(desc), None) => Ok(Some(Bolt11InvoiceDescription {
+			kind: Some(bolt11_invoice_description::Kind::Direct(desc)),
+		})),
+		(None, Some(hash)) => Ok(Some(Bolt11InvoiceDescription {
+			kind: Some(bolt11_invoice_description::Kind::Hash(hash)),
+		})),
+		(Some(_), Some(_)) => {
+			Err("Only one of description or description_hash can be set".to_string())
+		},
+		(None, None) => Ok(None),
+	}
+}
+
 pub async fn handle_get_node_info(client: &LdkServerClient, _args: Value) -> Result<Value, String> {
 	let response =
 		client.get_node_info(GetNodeInfoRequest {}).await.map_err(|e| e.message.clone())?;
@@ -132,22 +154,7 @@ pub async fn handle_onchain_send(client: &LdkServerClient, args: Value) -> Resul
 
 pub async fn handle_bolt11_receive(client: &LdkServerClient, args: Value) -> Result<Value, String> {
 	let amount_msat = args.get("amount_msat").and_then(|v| v.as_u64());
-	let description_str = args.get("description").and_then(|v| v.as_str()).map(|s| s.to_string());
-	let description_hash =
-		args.get("description_hash").and_then(|v| v.as_str()).map(|s| s.to_string());
-
-	let invoice_description = match (description_str, description_hash) {
-		(Some(desc), None) => Some(Bolt11InvoiceDescription {
-			kind: Some(bolt11_invoice_description::Kind::Direct(desc)),
-		}),
-		(None, Some(hash)) => Some(Bolt11InvoiceDescription {
-			kind: Some(bolt11_invoice_description::Kind::Hash(hash)),
-		}),
-		(Some(_), Some(_)) => {
-			return Err("Only one of description or description_hash can be set".to_string());
-		},
-		(None, None) => None,
-	};
+	let invoice_description = build_bolt11_invoice_description(&args)?;
 
 	let expiry_secs = args
 		.get("expiry_secs")
@@ -161,6 +168,59 @@ pub async fn handle_bolt11_receive(client: &LdkServerClient, args: Value) -> Res
 			expiry_secs,
 			amount_msat,
 		})
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_bolt11_receive_via_jit_channel(
+	client: &LdkServerClient, args: Value,
+) -> Result<Value, String> {
+	let amount_msat = args
+		.get("amount_msat")
+		.and_then(|v| v.as_u64())
+		.ok_or("Missing required parameter: amount_msat")?;
+	let description = build_bolt11_invoice_description(&args)?;
+	let expiry_secs = args
+		.get("expiry_secs")
+		.and_then(|v| v.as_u64())
+		.map(|v| v as u32)
+		.unwrap_or(DEFAULT_EXPIRY_SECS);
+	let max_total_lsp_fee_limit_msat =
+		args.get("max_total_lsp_fee_limit_msat").and_then(|v| v.as_u64());
+
+	let response = client
+		.bolt11_receive_via_jit_channel(Bolt11ReceiveViaJitChannelRequest {
+			amount_msat,
+			description,
+			expiry_secs,
+			max_total_lsp_fee_limit_msat,
+		})
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_bolt11_receive_variable_amount_via_jit_channel(
+	client: &LdkServerClient, args: Value,
+) -> Result<Value, String> {
+	let description = build_bolt11_invoice_description(&args)?;
+	let expiry_secs = args
+		.get("expiry_secs")
+		.and_then(|v| v.as_u64())
+		.map(|v| v as u32)
+		.unwrap_or(DEFAULT_EXPIRY_SECS);
+	let max_proportional_lsp_fee_limit_ppm_msat =
+		args.get("max_proportional_lsp_fee_limit_ppm_msat").and_then(|v| v.as_u64());
+
+	let response = client
+		.bolt11_receive_variable_amount_via_jit_channel(
+			Bolt11ReceiveVariableAmountViaJitChannelRequest {
+				description,
+				expiry_secs,
+				max_proportional_lsp_fee_limit_ppm_msat,
+			},
+		)
 		.await
 		.map_err(|e| e.message.clone())?;
 	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))

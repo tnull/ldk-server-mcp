@@ -110,6 +110,22 @@ pub fn build_tool_registry() -> ToolRegistry {
 
 	register(
 		&mut tools,
+		"bolt11_receive_via_jit_channel",
+		"Create a BOLT11 Lightning invoice to receive via an LSPS2 JIT channel",
+		schema::bolt11_receive_via_jit_channel_schema(),
+		|c, a| Box::pin(handlers::handle_bolt11_receive_via_jit_channel(c, a)),
+	);
+
+	register(
+		&mut tools,
+		"bolt11_receive_variable_amount_via_jit_channel",
+		"Create a variable-amount BOLT11 Lightning invoice to receive via an LSPS2 JIT channel",
+		schema::bolt11_receive_variable_amount_via_jit_channel_schema(),
+		|c, a| Box::pin(handlers::handle_bolt11_receive_variable_amount_via_jit_channel(c, a)),
+	);
+
+	register(
+		&mut tools,
 		"bolt11_send",
 		"Pay a BOLT11 Lightning invoice",
 		schema::bolt11_send_schema(),
