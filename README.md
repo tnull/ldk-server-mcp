@@ -84,7 +84,7 @@ Add to your Claude Code MCP settings (`.claude/settings.json`):
 
 ## Available Tools
 
-The server exposes all 24 LDK Server operations as MCP tools:
+The server exposes all 30 LDK Server operations as MCP tools:
 
 ### Node
 | Tool | Description |
@@ -102,6 +102,8 @@ The server exposes all 24 LDK Server operations as MCP tools:
 | Tool | Description |
 |------|-------------|
 | `bolt11_receive` | Create a BOLT11 Lightning invoice to receive a payment |
+| `bolt11_receive_via_jit_channel` | Create a BOLT11 Lightning invoice to receive via an LSPS2 JIT channel |
+| `bolt11_receive_variable_amount_via_jit_channel` | Create a variable-amount BOLT11 Lightning invoice to receive via an LSPS2 JIT channel |
 | `bolt11_send` | Pay a BOLT11 Lightning invoice |
 | `bolt12_receive` | Create a BOLT12 offer for receiving Lightning payments |
 | `bolt12_send` | Pay a BOLT12 Lightning offer |

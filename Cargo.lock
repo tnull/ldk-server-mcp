@@ -544,7 +544,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 [[package]]
 name = "ldk-server-client"
 version = "0.1.0"
-source = "git+https://github.com/tnull/ldk-server?rev=4d90c74#4d90c747872e7d0721351b9ed29da7c9611e0e3b"
+source = "git+https://github.com/tnull/ldk-server?rev=1cfe65e80f3d3324941a3c44b26ef7d0cbbe6377#1cfe65e80f3d3324941a3c44b26ef7d0cbbe6377"
 dependencies = [
  "bitcoin_hashes",
  "ldk-server-protos",
@@ -566,7 +566,7 @@ dependencies = [
 [[package]]
 name = "ldk-server-protos"
 version = "0.1.0"
-source = "git+https://github.com/tnull/ldk-server?rev=4d90c74#4d90c747872e7d0721351b9ed29da7c9611e0e3b"
+source = "git+https://github.com/tnull/ldk-server?rev=1cfe65e80f3d3324941a3c44b26ef7d0cbbe6377#1cfe65e80f3d3324941a3c44b26ef7d0cbbe6377"
 dependencies = [
  "bytes",
  "prost",
