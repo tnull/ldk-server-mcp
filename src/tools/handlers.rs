@@ -8,7 +8,7 @@
 // licenses.
 
 use ldk_server_client::client::LdkServerClient;
-use ldk_server_client::ldk_server_protos::api::{
+use ldk_server_client::ldk_server_grpc::api::{
 	Bolt11ReceiveRequest, Bolt11ReceiveVariableAmountViaJitChannelRequest,
 	Bolt11ReceiveViaJitChannelRequest, Bolt12ReceiveRequest, Bolt12SendRequest,
 	CloseChannelRequest, ConnectPeerRequest, DisconnectPeerRequest, ExportPathfindingScoresRequest,
@@ -18,7 +18,7 @@ use ldk_server_client::ldk_server_protos::api::{
 	OnchainSendRequest, OpenChannelRequest, SignMessageRequest, SpliceInRequest, SpliceOutRequest,
 	SpontaneousSendRequest, UpdateChannelConfigRequest, VerifySignatureRequest,
 };
-use ldk_server_client::ldk_server_protos::types::{
+use ldk_server_client::ldk_server_grpc::types::{
 	bolt11_invoice_description, Bolt11InvoiceDescription, ChannelConfig, PageToken,
 	RouteParametersConfig,
 };
@@ -236,7 +236,7 @@ pub async fn handle_bolt11_send(client: &LdkServerClient, args: Value) -> Result
 	let route_parameters = build_route_parameters(&args);
 
 	let response = client
-		.bolt11_send(ldk_server_client::ldk_server_protos::api::Bolt11SendRequest {
+		.bolt11_send(ldk_server_client::ldk_server_grpc::api::Bolt11SendRequest {
 			invoice,
 			amount_msat,
 			route_parameters: Some(route_parameters),
@@ -339,6 +339,7 @@ pub async fn handle_open_channel(client: &LdkServerClient, args: Value) -> Resul
 			push_to_counterparty_msat,
 			channel_config,
 			announce_channel,
+			disable_counterparty_reserve: false,
 		})
 		.await
 		.map_err(|e| e.message.clone())?;
