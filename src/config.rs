@@ -106,8 +106,6 @@ pub fn resolve_config(config_path: Option<String>) -> Result<ResolvedConfig, Str
 
 	let base_url = std::env::var("LDK_BASE_URL").ok().or_else(|| {
 		config.as_ref().map(|c| c.node.grpc_service_address.clone())
-	}).or_else(|| {
-		config.as_ref().map(|_| DEFAULT_GRPC_SERVICE_ADDRESS.to_string())
 	}).ok_or_else(|| {
 		"Base URL not provided. Set LDK_BASE_URL or ensure config file exists at ~/.ldk-server/config.toml".to_string()
 	})?;

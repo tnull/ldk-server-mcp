@@ -11,7 +11,7 @@ use ldk_server_client::client::LdkServerClient;
 use ldk_server_client::ldk_server_grpc::api::{
 	Bolt11ClaimForHashRequest, Bolt11FailForHashRequest, Bolt11ReceiveForHashRequest,
 	Bolt11ReceiveRequest, Bolt11ReceiveVariableAmountViaJitChannelRequest,
-	Bolt11ReceiveViaJitChannelRequest, Bolt12ReceiveRequest, Bolt12SendRequest,
+	Bolt11ReceiveViaJitChannelRequest, Bolt11SendRequest, Bolt12ReceiveRequest, Bolt12SendRequest,
 	CloseChannelRequest, ConnectPeerRequest, DecodeInvoiceRequest, DecodeOfferRequest,
 	DisconnectPeerRequest, ExportPathfindingScoresRequest, ForceCloseChannelRequest,
 	GetBalancesRequest, GetNodeInfoRequest, GetPaymentDetailsRequest, GraphGetChannelRequest,
@@ -117,6 +117,17 @@ fn build_channel_config(args: &Value) -> Result<Option<ChannelConfig>, String> {
 		force_close_avoidance_max_fee_satoshis,
 		accept_underpaying_htlcs,
 		max_dust_htlc_exposure,
+	}))
+}
+
+fn build_update_channel_config(args: &Value) -> Result<ChannelConfig, String> {
+	Ok(build_channel_config(args)?.unwrap_or(ChannelConfig {
+		forwarding_fee_proportional_millionths: None,
+		forwarding_fee_base_msat: None,
+		cltv_expiry_delta: None,
+		force_close_avoidance_max_fee_satoshis: None,
+		accept_underpaying_htlcs: None,
+		max_dust_htlc_exposure: None,
 	}))
 }
 
@@ -328,7 +339,7 @@ pub async fn handle_bolt11_send(client: &LdkServerClient, args: Value) -> Result
 	let route_parameters = build_route_parameters(&args);
 
 	let response = client
-		.bolt11_send(ldk_server_client::ldk_server_grpc::api::Bolt11SendRequest {
+		.bolt11_send(Bolt11SendRequest {
 			invoice,
 			amount_msat,
 			route_parameters: Some(route_parameters),
@@ -578,44 +589,7 @@ pub async fn handle_update_channel_config(
 		.ok_or("Missing required parameter: counterparty_node_id")?
 		.to_string();
 
-	let forwarding_fee_proportional_millionths = args
-		.get("forwarding_fee_proportional_millionths")
-		.and_then(|v| v.as_u64())
-		.map(|v| v as u32);
-	let forwarding_fee_base_msat =
-		args.get("forwarding_fee_base_msat").and_then(|v| v.as_u64()).map(|v| v as u32);
-	let cltv_expiry_delta =
-		args.get("cltv_expiry_delta").and_then(|v| v.as_u64()).map(|v| v as u32);
-	let force_close_avoidance_max_fee_satoshis =
-		args.get("force_close_avoidance_max_fee_satoshis").and_then(|v| v.as_u64());
-	let accept_underpaying_htlcs = args.get("accept_underpaying_htlcs").and_then(|v| v.as_bool());
-	let max_dust_htlc_exposure = match (
-		args.get("max_dust_htlc_exposure_fixed_limit_msat").and_then(|v| v.as_u64()),
-		args.get("max_dust_htlc_exposure_fee_rate_multiplier").and_then(|v| v.as_u64()),
-	) {
-		(Some(_), Some(_)) => {
-			return Err(
-				"Only one of max_dust_htlc_exposure_fixed_limit_msat or max_dust_htlc_exposure_fee_rate_multiplier can be set"
-					.to_string(),
-			)
-		},
-		(Some(limit_msat), None) => {
-			Some(channel_config::MaxDustHtlcExposure::FixedLimitMsat(limit_msat))
-		},
-		(None, Some(multiplier)) => {
-			Some(channel_config::MaxDustHtlcExposure::FeeRateMultiplier(multiplier))
-		},
-		(None, None) => None,
-	};
-
-	let channel_config = ChannelConfig {
-		forwarding_fee_proportional_millionths,
-		forwarding_fee_base_msat,
-		cltv_expiry_delta,
-		force_close_avoidance_max_fee_satoshis,
-		accept_underpaying_htlcs,
-		max_dust_htlc_exposure,
-	};
+	let channel_config = build_update_channel_config(&args)?;
 
 	let response = client
 		.update_channel_config(UpdateChannelConfigRequest {
