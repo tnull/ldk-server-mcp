@@ -20,7 +20,7 @@ The TOML config format is the same as used by [`ldk-server-cli`](https://github.
 
 ```toml
 [node]
-rest_service_address = "localhost:3000"
+grpc_service_address = "127.0.0.1:3536"
 network = "signet"
 
 [tls]
@@ -84,7 +84,9 @@ Add to your Claude Code MCP settings (`.claude/settings.json`):
 
 ## Available Tools
 
-The server exposes all 30 LDK Server operations as MCP tools:
+The server exposes 37 unary LDK Server RPCs as MCP tools.
+
+Streaming RPCs such as `subscribe_events` and non-RPC HTTP endpoints such as `metrics` are not exposed as tools.
 
 ### Node
 | Tool | Description |
@@ -102,12 +104,16 @@ The server exposes all 30 LDK Server operations as MCP tools:
 | Tool | Description |
 |------|-------------|
 | `bolt11_receive` | Create a BOLT11 Lightning invoice to receive a payment |
+| `bolt11_receive_for_hash` | Create a BOLT11 Lightning invoice for a specific payment hash |
+| `bolt11_claim_for_hash` | Manually claim a BOLT11 payment for a specific payment hash |
+| `bolt11_fail_for_hash` | Manually fail a BOLT11 payment for a specific payment hash |
 | `bolt11_receive_via_jit_channel` | Create a BOLT11 Lightning invoice to receive via an LSPS2 JIT channel |
 | `bolt11_receive_variable_amount_via_jit_channel` | Create a variable-amount BOLT11 Lightning invoice to receive via an LSPS2 JIT channel |
 | `bolt11_send` | Pay a BOLT11 Lightning invoice |
 | `bolt12_receive` | Create a BOLT12 offer for receiving Lightning payments |
 | `bolt12_send` | Pay a BOLT12 Lightning offer |
 | `spontaneous_send` | Send a spontaneous (keysend) payment to a Lightning node |
+| `unified_send` | Send a payment given a BIP 21 URI or BIP 353 Human-Readable Name |
 
 ### Channels
 | Tool | Description |
@@ -132,10 +138,13 @@ The server exposes all 30 LDK Server operations as MCP tools:
 |------|-------------|
 | `connect_peer` | Connect to a Lightning peer without opening a channel |
 | `disconnect_peer` | Disconnect from a Lightning peer |
+| `list_peers` | List all known Lightning peers |
 
 ### Utilities
 | Tool | Description |
 |------|-------------|
+| `decode_invoice` | Decode a BOLT11 invoice and return its parsed fields |
+| `decode_offer` | Decode a BOLT12 offer and return its parsed fields |
 | `sign_message` | Sign a message with the node's secret key |
 | `verify_signature` | Verify a signature against a message and public key |
 | `export_pathfinding_scores` | Export the pathfinding scores used by the Lightning router |

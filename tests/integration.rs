@@ -13,6 +13,45 @@ use std::process::{Command, Stdio};
 use serde_json::{json, Value};
 
 const NUM_TOOLS: usize = 37;
+const EXPECTED_TOOLS: [&str; NUM_TOOLS] = [
+	"bolt11_claim_for_hash",
+	"bolt11_fail_for_hash",
+	"bolt11_receive",
+	"bolt11_receive_for_hash",
+	"bolt11_receive_variable_amount_via_jit_channel",
+	"bolt11_receive_via_jit_channel",
+	"bolt11_send",
+	"bolt12_receive",
+	"bolt12_send",
+	"close_channel",
+	"connect_peer",
+	"decode_invoice",
+	"decode_offer",
+	"disconnect_peer",
+	"export_pathfinding_scores",
+	"force_close_channel",
+	"get_balances",
+	"get_node_info",
+	"get_payment_details",
+	"graph_get_channel",
+	"graph_get_node",
+	"graph_list_channels",
+	"graph_list_nodes",
+	"list_channels",
+	"list_forwarded_payments",
+	"list_payments",
+	"list_peers",
+	"onchain_receive",
+	"onchain_send",
+	"open_channel",
+	"sign_message",
+	"splice_in",
+	"splice_out",
+	"spontaneous_send",
+	"unified_send",
+	"update_channel_config",
+	"verify_signature",
+];
 
 fn test_cert_path() -> String {
 	std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -153,6 +192,16 @@ fn test_tools_list() {
 
 	let tools = resp["result"]["tools"].as_array().unwrap();
 	assert_eq!(tools.len(), NUM_TOOLS, "Expected {NUM_TOOLS} tools, got {}", tools.len());
+	let mut tool_names = tools
+		.iter()
+		.map(|tool| tool["name"].as_str().expect("Tool missing name").to_string())
+		.collect::<Vec<_>>();
+	tool_names.sort();
+
+	let mut expected_tool_names =
+		EXPECTED_TOOLS.iter().map(|name| name.to_string()).collect::<Vec<_>>();
+	expected_tool_names.sort();
+	assert_eq!(tool_names, expected_tool_names, "Tool names drifted from the expected API surface");
 
 	for tool in tools {
 		assert!(tool["name"].is_string(), "Tool missing name");
