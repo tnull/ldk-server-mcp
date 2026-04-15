@@ -14,6 +14,7 @@ use serde::Deserialize;
 const DEFAULT_CONFIG_FILE: &str = "config.toml";
 const DEFAULT_CERT_FILE: &str = "tls.crt";
 const API_KEY_FILE: &str = "api_key";
+const DEFAULT_GRPC_SERVICE_ADDRESS: &str = "127.0.0.1:3536";
 
 fn get_default_data_dir() -> Option<PathBuf> {
 	#[cfg(target_os = "macos")]
@@ -61,8 +62,13 @@ pub struct TlsConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct NodeConfig {
-	pub rest_service_address: String,
+	#[serde(default = "default_grpc_service_address")]
+	pub grpc_service_address: String,
 	network: String,
+}
+
+fn default_grpc_service_address() -> String {
+	DEFAULT_GRPC_SERVICE_ADDRESS.to_string()
 }
 
 impl Config {
@@ -93,10 +99,13 @@ pub struct ResolvedConfig {
 
 pub fn resolve_config(config_path: Option<String>) -> Result<ResolvedConfig, String> {
 	let config_path = config_path.map(PathBuf::from).or_else(get_default_config_path);
-	let config = config_path.as_ref().and_then(|p| load_config(p).ok());
+	let config = match config_path {
+		Some(ref path) if path.exists() => Some(load_config(path)?),
+		_ => None,
+	};
 
 	let base_url = std::env::var("LDK_BASE_URL").ok().or_else(|| {
-		config.as_ref().map(|c| c.node.rest_service_address.clone())
+		config.as_ref().map(|c| c.node.grpc_service_address.clone())
 	}).ok_or_else(|| {
 		"Base URL not provided. Set LDK_BASE_URL or ensure config file exists at ~/.ldk-server/config.toml".to_string()
 	})?;
@@ -125,4 +134,60 @@ pub fn resolve_config(config_path: Option<String>) -> Result<ResolvedConfig, Str
 	})?;
 
 	Ok(ResolvedConfig { base_url, api_key, tls_cert_pem })
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{resolve_config, Config, DEFAULT_GRPC_SERVICE_ADDRESS};
+
+	#[test]
+	fn config_defaults_grpc_service_address() {
+		let config: Config = toml::from_str(
+			r#"
+				[node]
+				network = "regtest"
+			"#,
+		)
+		.unwrap();
+
+		assert_eq!(config.node.grpc_service_address, DEFAULT_GRPC_SERVICE_ADDRESS);
+	}
+
+	#[test]
+	fn resolve_config_uses_grpc_service_address_from_config() {
+		let temp_dir =
+			std::env::temp_dir().join(format!("ldk-server-mcp-config-test-{}", std::process::id()));
+		std::fs::create_dir_all(&temp_dir).unwrap();
+
+		let config_path = temp_dir.join("config.toml");
+		let cert_path = temp_dir.join("tls.crt");
+		std::fs::write(&cert_path, b"test-cert").unwrap();
+		std::fs::write(
+			&config_path,
+			format!(
+				r#"
+					[node]
+					network = "regtest"
+					grpc_service_address = "127.0.0.1:4242"
+
+					[tls]
+					cert_path = "{}"
+				"#,
+				cert_path.display()
+			),
+		)
+		.unwrap();
+
+		std::env::set_var("LDK_API_KEY", "deadbeef");
+		std::env::set_var("LDK_TLS_CERT_PATH", &cert_path);
+		let resolved = resolve_config(Some(config_path.display().to_string())).unwrap();
+		std::env::remove_var("LDK_API_KEY");
+		std::env::remove_var("LDK_TLS_CERT_PATH");
+
+		assert_eq!(resolved.base_url, "127.0.0.1:4242");
+		assert_eq!(resolved.api_key, "deadbeef");
+		assert_eq!(resolved.tls_cert_pem, b"test-cert");
+
+		std::fs::remove_dir_all(temp_dir).unwrap();
+	}
 }

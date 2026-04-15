@@ -259,7 +259,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "futures-util",
- "http",
+ "http 0.2.12",
  "indexmap",
  "slab",
  "tokio",
@@ -324,14 +324,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "http"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3ba2a386d7f85a81f119ad7498ebe444d2e22c2af0b86b069416ace48b3311a"
+dependencies = [
+ "bytes",
+ "itoa",
+]
+
+[[package]]
 name = "http-body"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ceab25649e9960c0311ea418d17bee82c0dcec1bd053b5f9a66e265a693bed2"
 dependencies = [
  "bytes",
- "http",
+ "http 0.2.12",
  "pin-project-lite",
+]
+
+[[package]]
+name = "http-body"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
+dependencies = [
+ "bytes",
+ "http 1.4.0",
 ]
 
 [[package]]
@@ -357,8 +377,8 @@ dependencies = [
  "futures-core",
  "futures-util",
  "h2",
- "http",
- "http-body",
+ "http 0.2.12",
+ "http-body 0.4.6",
  "httparse",
  "httpdate",
  "itoa",
@@ -377,7 +397,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec3efd23720e2049821a693cbc7e65ea87c72f1c58ff2f9522ff332b1491e590"
 dependencies = [
  "futures-util",
- "http",
+ "http 0.2.12",
  "hyper",
  "rustls",
  "tokio",
@@ -544,12 +564,30 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 [[package]]
 name = "ldk-server-client"
 version = "0.1.0"
-source = "git+https://github.com/tnull/ldk-server?rev=1cfe65e80f3d3324941a3c44b26ef7d0cbbe6377#1cfe65e80f3d3324941a3c44b26ef7d0cbbe6377"
+source = "git+https://github.com/tnull/ldk-server?rev=5bd1c61865dc991d81ebbdce8930182366c22f0d#5bd1c61865dc991d81ebbdce8930182366c22f0d"
 dependencies = [
  "bitcoin_hashes",
- "ldk-server-protos",
+ "hyper",
+ "hyper-rustls",
+ "ldk-server-grpc",
  "prost",
  "reqwest",
+ "rustls",
+ "rustls-pemfile",
+]
+
+[[package]]
+name = "ldk-server-grpc"
+version = "0.1.0"
+source = "git+https://github.com/tnull/ldk-server?rev=5bd1c61865dc991d81ebbdce8930182366c22f0d#5bd1c61865dc991d81ebbdce8930182366c22f0d"
+dependencies = [
+ "bytes",
+ "http 1.4.0",
+ "http-body 1.0.1",
+ "prost",
+ "prost-build",
+ "serde",
+ "tokio",
 ]
 
 [[package]]
@@ -561,17 +599,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "toml",
-]
-
-[[package]]
-name = "ldk-server-protos"
-version = "0.1.0"
-source = "git+https://github.com/tnull/ldk-server?rev=1cfe65e80f3d3324941a3c44b26ef7d0cbbe6377#1cfe65e80f3d3324941a3c44b26ef7d0cbbe6377"
-dependencies = [
- "bytes",
- "prost",
- "prost-build",
- "serde",
 ]
 
 [[package]]
@@ -803,8 +830,8 @@ dependencies = [
  "futures-core",
  "futures-util",
  "h2",
- "http",
- "http-body",
+ "http 0.2.12",
+ "http-body 0.4.6",
  "hyper",
  "hyper-rustls",
  "ipnet",

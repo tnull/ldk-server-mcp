@@ -44,7 +44,7 @@ The server reads configuration in this precedence order (highest first):
 TOML config format (same as ldk-server-cli):
 ```toml
 [node]
-rest_service_address = "localhost:3000"
+grpc_service_address = "127.0.0.1:3536"
 network = "bitcoin"
 
 [tls]
@@ -58,4 +58,4 @@ When a new endpoint is added to `ldk-server-client`:
 1. Add a JSON schema function in `src/tools/schema.rs` (follow existing pattern)
 2. Add a handler function in `src/tools/handlers.rs`
 3. Register in `build_tool_registry()` in `src/tools/mod.rs`
-4. Update the tool count assertion (`NUM_TOOLS`) in `tests/integration.rs`
+4. Update the expected tool surface in `tests/integration.rs`

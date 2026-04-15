@@ -8,18 +8,20 @@
 // licenses.
 
 use ldk_server_client::client::LdkServerClient;
-use ldk_server_client::ldk_server_protos::api::{
+use ldk_server_client::ldk_server_grpc::api::{
+	Bolt11ClaimForHashRequest, Bolt11FailForHashRequest, Bolt11ReceiveForHashRequest,
 	Bolt11ReceiveRequest, Bolt11ReceiveVariableAmountViaJitChannelRequest,
-	Bolt11ReceiveViaJitChannelRequest, Bolt12ReceiveRequest, Bolt12SendRequest,
-	CloseChannelRequest, ConnectPeerRequest, DisconnectPeerRequest, ExportPathfindingScoresRequest,
-	ForceCloseChannelRequest, GetBalancesRequest, GetNodeInfoRequest, GetPaymentDetailsRequest,
-	GraphGetChannelRequest, GraphGetNodeRequest, GraphListChannelsRequest, GraphListNodesRequest,
-	ListChannelsRequest, ListForwardedPaymentsRequest, ListPaymentsRequest, OnchainReceiveRequest,
+	Bolt11ReceiveViaJitChannelRequest, Bolt11SendRequest, Bolt12ReceiveRequest, Bolt12SendRequest,
+	CloseChannelRequest, ConnectPeerRequest, DecodeInvoiceRequest, DecodeOfferRequest,
+	DisconnectPeerRequest, ExportPathfindingScoresRequest, ForceCloseChannelRequest,
+	GetBalancesRequest, GetNodeInfoRequest, GetPaymentDetailsRequest, GraphGetChannelRequest,
+	GraphGetNodeRequest, GraphListChannelsRequest, GraphListNodesRequest, ListChannelsRequest,
+	ListForwardedPaymentsRequest, ListPaymentsRequest, ListPeersRequest, OnchainReceiveRequest,
 	OnchainSendRequest, OpenChannelRequest, SignMessageRequest, SpliceInRequest, SpliceOutRequest,
-	SpontaneousSendRequest, UpdateChannelConfigRequest, VerifySignatureRequest,
+	SpontaneousSendRequest, UnifiedSendRequest, UpdateChannelConfigRequest, VerifySignatureRequest,
 };
-use ldk_server_client::ldk_server_protos::types::{
-	bolt11_invoice_description, Bolt11InvoiceDescription, ChannelConfig, PageToken,
+use ldk_server_client::ldk_server_grpc::types::{
+	bolt11_invoice_description, channel_config, Bolt11InvoiceDescription, ChannelConfig, PageToken,
 	RouteParametersConfig,
 };
 use serde_json::{json, Value};
@@ -67,7 +69,7 @@ fn build_route_parameters(args: &Value) -> RouteParametersConfig {
 	}
 }
 
-fn build_channel_config(args: &Value) -> Option<ChannelConfig> {
+fn build_channel_config(args: &Value) -> Result<Option<ChannelConfig>, String> {
 	let forwarding_fee_proportional_millionths = args
 		.get("forwarding_fee_proportional_millionths")
 		.and_then(|v| v.as_u64())
@@ -76,22 +78,57 @@ fn build_channel_config(args: &Value) -> Option<ChannelConfig> {
 		args.get("forwarding_fee_base_msat").and_then(|v| v.as_u64()).map(|v| v as u32);
 	let cltv_expiry_delta =
 		args.get("cltv_expiry_delta").and_then(|v| v.as_u64()).map(|v| v as u32);
+	let force_close_avoidance_max_fee_satoshis =
+		args.get("force_close_avoidance_max_fee_satoshis").and_then(|v| v.as_u64());
+	let accept_underpaying_htlcs = args.get("accept_underpaying_htlcs").and_then(|v| v.as_bool());
+	let max_dust_htlc_exposure = match (
+		args.get("max_dust_htlc_exposure_fixed_limit_msat").and_then(|v| v.as_u64()),
+		args.get("max_dust_htlc_exposure_fee_rate_multiplier").and_then(|v| v.as_u64()),
+	) {
+		(Some(_), Some(_)) => {
+			return Err(
+				"Only one of max_dust_htlc_exposure_fixed_limit_msat or max_dust_htlc_exposure_fee_rate_multiplier can be set"
+					.to_string(),
+			)
+		},
+		(Some(limit_msat), None) => {
+			Some(channel_config::MaxDustHtlcExposure::FixedLimitMsat(limit_msat))
+		},
+		(None, Some(multiplier)) => {
+			Some(channel_config::MaxDustHtlcExposure::FeeRateMultiplier(multiplier))
+		},
+		(None, None) => None,
+	};
 
 	if forwarding_fee_proportional_millionths.is_none()
 		&& forwarding_fee_base_msat.is_none()
 		&& cltv_expiry_delta.is_none()
+		&& force_close_avoidance_max_fee_satoshis.is_none()
+		&& accept_underpaying_htlcs.is_none()
+		&& max_dust_htlc_exposure.is_none()
 	{
-		return None;
+		return Ok(None);
 	}
 
-	Some(ChannelConfig {
+	Ok(Some(ChannelConfig {
 		forwarding_fee_proportional_millionths,
 		forwarding_fee_base_msat,
 		cltv_expiry_delta,
+		force_close_avoidance_max_fee_satoshis,
+		accept_underpaying_htlcs,
+		max_dust_htlc_exposure,
+	}))
+}
+
+fn build_update_channel_config(args: &Value) -> Result<ChannelConfig, String> {
+	Ok(build_channel_config(args)?.unwrap_or(ChannelConfig {
+		forwarding_fee_proportional_millionths: None,
+		forwarding_fee_base_msat: None,
+		cltv_expiry_delta: None,
 		force_close_avoidance_max_fee_satoshis: None,
 		accept_underpaying_htlcs: None,
 		max_dust_htlc_exposure: None,
-	})
+	}))
 }
 
 fn build_bolt11_invoice_description(
@@ -173,6 +210,72 @@ pub async fn handle_bolt11_receive(client: &LdkServerClient, args: Value) -> Res
 	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
 }
 
+pub async fn handle_bolt11_receive_for_hash(
+	client: &LdkServerClient, args: Value,
+) -> Result<Value, String> {
+	let amount_msat = args.get("amount_msat").and_then(|v| v.as_u64());
+	let description = build_bolt11_invoice_description(&args)?;
+	let expiry_secs = args
+		.get("expiry_secs")
+		.and_then(|v| v.as_u64())
+		.map(|v| v as u32)
+		.unwrap_or(DEFAULT_EXPIRY_SECS);
+	let payment_hash = args
+		.get("payment_hash")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: payment_hash")?
+		.to_string();
+
+	let response = client
+		.bolt11_receive_for_hash(Bolt11ReceiveForHashRequest {
+			amount_msat,
+			description,
+			expiry_secs,
+			payment_hash,
+		})
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_bolt11_claim_for_hash(
+	client: &LdkServerClient, args: Value,
+) -> Result<Value, String> {
+	let payment_hash = args.get("payment_hash").and_then(|v| v.as_str()).map(|s| s.to_string());
+	let claimable_amount_msat = args.get("claimable_amount_msat").and_then(|v| v.as_u64());
+	let preimage = args
+		.get("preimage")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: preimage")?
+		.to_string();
+
+	let response = client
+		.bolt11_claim_for_hash(Bolt11ClaimForHashRequest {
+			payment_hash,
+			claimable_amount_msat,
+			preimage,
+		})
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_bolt11_fail_for_hash(
+	client: &LdkServerClient, args: Value,
+) -> Result<Value, String> {
+	let payment_hash = args
+		.get("payment_hash")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: payment_hash")?
+		.to_string();
+
+	let response = client
+		.bolt11_fail_for_hash(Bolt11FailForHashRequest { payment_hash })
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
 pub async fn handle_bolt11_receive_via_jit_channel(
 	client: &LdkServerClient, args: Value,
 ) -> Result<Value, String> {
@@ -236,7 +339,7 @@ pub async fn handle_bolt11_send(client: &LdkServerClient, args: Value) -> Result
 	let route_parameters = build_route_parameters(&args);
 
 	let response = client
-		.bolt11_send(ldk_server_client::ldk_server_protos::api::Bolt11SendRequest {
+		.bolt11_send(Bolt11SendRequest {
 			invoice,
 			amount_msat,
 			route_parameters: Some(route_parameters),
@@ -312,6 +415,26 @@ pub async fn handle_spontaneous_send(
 	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
 }
 
+pub async fn handle_unified_send(client: &LdkServerClient, args: Value) -> Result<Value, String> {
+	let uri = args
+		.get("uri")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: uri")?
+		.to_string();
+	let amount_msat = args.get("amount_msat").and_then(|v| v.as_u64());
+	let route_parameters = build_route_parameters(&args);
+
+	let response = client
+		.unified_send(UnifiedSendRequest {
+			uri,
+			amount_msat,
+			route_parameters: Some(route_parameters),
+		})
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
 pub async fn handle_open_channel(client: &LdkServerClient, args: Value) -> Result<Value, String> {
 	let node_pubkey = args
 		.get("node_pubkey")
@@ -329,7 +452,9 @@ pub async fn handle_open_channel(client: &LdkServerClient, args: Value) -> Resul
 		.ok_or("Missing required parameter: channel_amount_sats")?;
 	let push_to_counterparty_msat = args.get("push_to_counterparty_msat").and_then(|v| v.as_u64());
 	let announce_channel = args.get("announce_channel").and_then(|v| v.as_bool()).unwrap_or(false);
-	let channel_config = build_channel_config(&args);
+	let disable_counterparty_reserve =
+		args.get("disable_counterparty_reserve").and_then(|v| v.as_bool()).unwrap_or(false);
+	let channel_config = build_channel_config(&args)?;
 
 	let response = client
 		.open_channel(OpenChannelRequest {
@@ -339,6 +464,7 @@ pub async fn handle_open_channel(client: &LdkServerClient, args: Value) -> Resul
 			push_to_counterparty_msat,
 			channel_config,
 			announce_channel,
+			disable_counterparty_reserve,
 		})
 		.await
 		.map_err(|e| e.message.clone())?;
@@ -463,23 +589,7 @@ pub async fn handle_update_channel_config(
 		.ok_or("Missing required parameter: counterparty_node_id")?
 		.to_string();
 
-	let forwarding_fee_proportional_millionths = args
-		.get("forwarding_fee_proportional_millionths")
-		.and_then(|v| v.as_u64())
-		.map(|v| v as u32);
-	let forwarding_fee_base_msat =
-		args.get("forwarding_fee_base_msat").and_then(|v| v.as_u64()).map(|v| v as u32);
-	let cltv_expiry_delta =
-		args.get("cltv_expiry_delta").and_then(|v| v.as_u64()).map(|v| v as u32);
-
-	let channel_config = ChannelConfig {
-		forwarding_fee_proportional_millionths,
-		forwarding_fee_base_msat,
-		cltv_expiry_delta,
-		force_close_avoidance_max_fee_satoshis: None,
-		accept_underpaying_htlcs: None,
-		max_dust_htlc_exposure: None,
-	};
+	let channel_config = build_update_channel_config(&args)?;
 
 	let response = client
 		.update_channel_config(UpdateChannelConfigRequest {
@@ -591,6 +701,37 @@ pub async fn handle_disconnect_peer(
 		.disconnect_peer(DisconnectPeerRequest { node_pubkey })
 		.await
 		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_list_peers(client: &LdkServerClient, _args: Value) -> Result<Value, String> {
+	let response = client.list_peers(ListPeersRequest {}).await.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_decode_invoice(client: &LdkServerClient, args: Value) -> Result<Value, String> {
+	let invoice = args
+		.get("invoice")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: invoice")?
+		.to_string();
+
+	let response = client
+		.decode_invoice(DecodeInvoiceRequest { invoice })
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_decode_offer(client: &LdkServerClient, args: Value) -> Result<Value, String> {
+	let offer = args
+		.get("offer")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: offer")?
+		.to_string();
+
+	let response =
+		client.decode_offer(DecodeOfferRequest { offer }).await.map_err(|e| e.message.clone())?;
 	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
 }
 

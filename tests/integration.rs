@@ -12,7 +12,46 @@ use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
 
-const NUM_TOOLS: usize = 30;
+const NUM_TOOLS: usize = 37;
+const EXPECTED_TOOLS: [&str; NUM_TOOLS] = [
+	"bolt11_claim_for_hash",
+	"bolt11_fail_for_hash",
+	"bolt11_receive",
+	"bolt11_receive_for_hash",
+	"bolt11_receive_variable_amount_via_jit_channel",
+	"bolt11_receive_via_jit_channel",
+	"bolt11_send",
+	"bolt12_receive",
+	"bolt12_send",
+	"close_channel",
+	"connect_peer",
+	"decode_invoice",
+	"decode_offer",
+	"disconnect_peer",
+	"export_pathfinding_scores",
+	"force_close_channel",
+	"get_balances",
+	"get_node_info",
+	"get_payment_details",
+	"graph_get_channel",
+	"graph_get_node",
+	"graph_list_channels",
+	"graph_list_nodes",
+	"list_channels",
+	"list_forwarded_payments",
+	"list_payments",
+	"list_peers",
+	"onchain_receive",
+	"onchain_send",
+	"open_channel",
+	"sign_message",
+	"splice_in",
+	"splice_out",
+	"spontaneous_send",
+	"unified_send",
+	"update_channel_config",
+	"verify_signature",
+];
 
 fn test_cert_path() -> String {
 	std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -91,6 +130,27 @@ impl Drop for McpProcess {
 	}
 }
 
+fn assert_unreachable_tool(tool_name: &str, arguments: Value) {
+	let mut proc = McpProcess::spawn();
+
+	proc.send(&json!({
+		"jsonrpc": "2.0",
+		"id": 1,
+		"method": "tools/call",
+		"params": {
+			"name": tool_name,
+			"arguments": arguments
+		}
+	}));
+
+	let resp = proc.recv();
+	assert_eq!(resp["jsonrpc"], "2.0");
+	assert_eq!(resp["id"], 1);
+	assert_eq!(resp["result"]["isError"], true);
+	let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+	assert!(!text.is_empty(), "Expected non-empty error message");
+}
+
 #[test]
 fn test_initialize() {
 	let mut proc = McpProcess::spawn();
@@ -132,6 +192,16 @@ fn test_tools_list() {
 
 	let tools = resp["result"]["tools"].as_array().unwrap();
 	assert_eq!(tools.len(), NUM_TOOLS, "Expected {NUM_TOOLS} tools, got {}", tools.len());
+	let mut tool_names = tools
+		.iter()
+		.map(|tool| tool["name"].as_str().expect("Tool missing name").to_string())
+		.collect::<Vec<_>>();
+	tool_names.sort();
+
+	let mut expected_tool_names =
+		EXPECTED_TOOLS.iter().map(|name| name.to_string()).collect::<Vec<_>>();
+	expected_tool_names.sort();
+	assert_eq!(tool_names, expected_tool_names, "Tool names drifted from the expected API surface");
 
 	for tool in tools {
 		assert!(tool["name"].is_string(), "Tool missing name");
@@ -211,26 +281,57 @@ fn test_bolt11_receive_via_jit_channel_unreachable() {
 
 #[test]
 fn test_bolt11_receive_variable_amount_via_jit_channel_unreachable() {
-	let mut proc = McpProcess::spawn();
+	assert_unreachable_tool(
+		"bolt11_receive_variable_amount_via_jit_channel",
+		json!({ "description": "test jit" }),
+	);
+}
 
-	proc.send(&json!({
-		"jsonrpc": "2.0",
-		"id": 1,
-		"method": "tools/call",
-		"params": {
-			"name": "bolt11_receive_variable_amount_via_jit_channel",
-			"arguments": {
-				"description": "test jit"
-			}
-		}
-	}));
+#[test]
+fn test_bolt11_receive_for_hash_unreachable() {
+	assert_unreachable_tool(
+		"bolt11_receive_for_hash",
+		json!({
+			"payment_hash": "00".repeat(32),
+			"description": "test hodl"
+		}),
+	);
+}
 
-	let resp = proc.recv();
-	assert_eq!(resp["jsonrpc"], "2.0");
-	assert_eq!(resp["id"], 1);
-	assert_eq!(resp["result"]["isError"], true);
-	let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-	assert!(!text.is_empty(), "Expected non-empty error message");
+#[test]
+fn test_bolt11_claim_for_hash_unreachable() {
+	assert_unreachable_tool(
+		"bolt11_claim_for_hash",
+		json!({
+			"payment_hash": "11".repeat(32),
+			"preimage": "22".repeat(32)
+		}),
+	);
+}
+
+#[test]
+fn test_bolt11_fail_for_hash_unreachable() {
+	assert_unreachable_tool("bolt11_fail_for_hash", json!({ "payment_hash": "33".repeat(32) }));
+}
+
+#[test]
+fn test_unified_send_unreachable() {
+	assert_unreachable_tool("unified_send", json!({ "uri": "bitcoin:tb1qexample?amount=0.001" }));
+}
+
+#[test]
+fn test_list_peers_unreachable() {
+	assert_unreachable_tool("list_peers", json!({}));
+}
+
+#[test]
+fn test_decode_invoice_unreachable() {
+	assert_unreachable_tool("decode_invoice", json!({ "invoice": "lnbc1example" }));
+}
+
+#[test]
+fn test_decode_offer_unreachable() {
+	assert_unreachable_tool("decode_offer", json!({ "offer": "lno1example" }));
 }
 
 #[test]
