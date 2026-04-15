@@ -400,6 +400,26 @@ pub fn open_channel_schema() -> Value {
 			"cltv_expiry_delta": {
 				"type": "integer",
 				"description": "CLTV delta between incoming and outbound HTLCs"
+			},
+			"force_close_avoidance_max_fee_satoshis": {
+				"type": "integer",
+				"description": "The maximum additional fee we are willing to pay to avoid waiting for the counterparty's to_self_delay to reclaim funds"
+			},
+			"accept_underpaying_htlcs": {
+				"type": "boolean",
+				"description": "If set, allows the channel counterparty to skim an additional fee off inbound HTLCs"
+			},
+			"max_dust_htlc_exposure_fixed_limit_msat": {
+				"type": "integer",
+				"description": "Sets a fixed limit on the total dust exposure in millisatoshis. Mutually exclusive with max_dust_htlc_exposure_fee_rate_multiplier"
+			},
+			"max_dust_htlc_exposure_fee_rate_multiplier": {
+				"type": "integer",
+				"description": "Sets a multiplier on the on-chain sweep feerate to determine the maximum allowed dust exposure. Mutually exclusive with max_dust_htlc_exposure_fixed_limit_msat"
+			},
+			"disable_counterparty_reserve": {
+				"type": "boolean",
+				"description": "Allow the counterparty to spend all its channel balance. Cannot be set together with announce_channel"
 			}
 		},
 		"required": ["node_pubkey", "address", "channel_amount_sats"]
@@ -521,6 +541,22 @@ pub fn update_channel_config_schema() -> Value {
 			"cltv_expiry_delta": {
 				"type": "integer",
 				"description": "CLTV delta between incoming and outbound HTLCs"
+			},
+			"force_close_avoidance_max_fee_satoshis": {
+				"type": "integer",
+				"description": "The maximum additional fee we are willing to pay to avoid waiting for the counterparty's to_self_delay to reclaim funds"
+			},
+			"accept_underpaying_htlcs": {
+				"type": "boolean",
+				"description": "If set, allows the channel counterparty to skim an additional fee off inbound HTLCs"
+			},
+			"max_dust_htlc_exposure_fixed_limit_msat": {
+				"type": "integer",
+				"description": "Sets a fixed limit on the total dust exposure in millisatoshis. Mutually exclusive with max_dust_htlc_exposure_fee_rate_multiplier"
+			},
+			"max_dust_htlc_exposure_fee_rate_multiplier": {
+				"type": "integer",
+				"description": "Sets a multiplier on the on-chain sweep feerate to determine the maximum allowed dust exposure. Mutually exclusive with max_dust_htlc_exposure_fixed_limit_msat"
 			}
 		},
 		"required": ["user_channel_id", "counterparty_node_id"]
