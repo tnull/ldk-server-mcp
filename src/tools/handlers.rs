@@ -9,14 +9,16 @@
 
 use ldk_server_client::client::LdkServerClient;
 use ldk_server_client::ldk_server_grpc::api::{
+	Bolt11ClaimForHashRequest, Bolt11FailForHashRequest, Bolt11ReceiveForHashRequest,
 	Bolt11ReceiveRequest, Bolt11ReceiveVariableAmountViaJitChannelRequest,
 	Bolt11ReceiveViaJitChannelRequest, Bolt12ReceiveRequest, Bolt12SendRequest,
-	CloseChannelRequest, ConnectPeerRequest, DisconnectPeerRequest, ExportPathfindingScoresRequest,
-	ForceCloseChannelRequest, GetBalancesRequest, GetNodeInfoRequest, GetPaymentDetailsRequest,
-	GraphGetChannelRequest, GraphGetNodeRequest, GraphListChannelsRequest, GraphListNodesRequest,
-	ListChannelsRequest, ListForwardedPaymentsRequest, ListPaymentsRequest, OnchainReceiveRequest,
+	CloseChannelRequest, ConnectPeerRequest, DecodeInvoiceRequest, DecodeOfferRequest,
+	DisconnectPeerRequest, ExportPathfindingScoresRequest, ForceCloseChannelRequest,
+	GetBalancesRequest, GetNodeInfoRequest, GetPaymentDetailsRequest, GraphGetChannelRequest,
+	GraphGetNodeRequest, GraphListChannelsRequest, GraphListNodesRequest, ListChannelsRequest,
+	ListForwardedPaymentsRequest, ListPaymentsRequest, ListPeersRequest, OnchainReceiveRequest,
 	OnchainSendRequest, OpenChannelRequest, SignMessageRequest, SpliceInRequest, SpliceOutRequest,
-	SpontaneousSendRequest, UpdateChannelConfigRequest, VerifySignatureRequest,
+	SpontaneousSendRequest, UnifiedSendRequest, UpdateChannelConfigRequest, VerifySignatureRequest,
 };
 use ldk_server_client::ldk_server_grpc::types::{
 	bolt11_invoice_description, Bolt11InvoiceDescription, ChannelConfig, PageToken,
@@ -173,6 +175,72 @@ pub async fn handle_bolt11_receive(client: &LdkServerClient, args: Value) -> Res
 	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
 }
 
+pub async fn handle_bolt11_receive_for_hash(
+	client: &LdkServerClient, args: Value,
+) -> Result<Value, String> {
+	let amount_msat = args.get("amount_msat").and_then(|v| v.as_u64());
+	let description = build_bolt11_invoice_description(&args)?;
+	let expiry_secs = args
+		.get("expiry_secs")
+		.and_then(|v| v.as_u64())
+		.map(|v| v as u32)
+		.unwrap_or(DEFAULT_EXPIRY_SECS);
+	let payment_hash = args
+		.get("payment_hash")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: payment_hash")?
+		.to_string();
+
+	let response = client
+		.bolt11_receive_for_hash(Bolt11ReceiveForHashRequest {
+			amount_msat,
+			description,
+			expiry_secs,
+			payment_hash,
+		})
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_bolt11_claim_for_hash(
+	client: &LdkServerClient, args: Value,
+) -> Result<Value, String> {
+	let payment_hash = args.get("payment_hash").and_then(|v| v.as_str()).map(|s| s.to_string());
+	let claimable_amount_msat = args.get("claimable_amount_msat").and_then(|v| v.as_u64());
+	let preimage = args
+		.get("preimage")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: preimage")?
+		.to_string();
+
+	let response = client
+		.bolt11_claim_for_hash(Bolt11ClaimForHashRequest {
+			payment_hash,
+			claimable_amount_msat,
+			preimage,
+		})
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_bolt11_fail_for_hash(
+	client: &LdkServerClient, args: Value,
+) -> Result<Value, String> {
+	let payment_hash = args
+		.get("payment_hash")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: payment_hash")?
+		.to_string();
+
+	let response = client
+		.bolt11_fail_for_hash(Bolt11FailForHashRequest { payment_hash })
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
 pub async fn handle_bolt11_receive_via_jit_channel(
 	client: &LdkServerClient, args: Value,
 ) -> Result<Value, String> {
@@ -305,6 +373,26 @@ pub async fn handle_spontaneous_send(
 		.spontaneous_send(SpontaneousSendRequest {
 			amount_msat,
 			node_id,
+			route_parameters: Some(route_parameters),
+		})
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_unified_send(client: &LdkServerClient, args: Value) -> Result<Value, String> {
+	let uri = args
+		.get("uri")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: uri")?
+		.to_string();
+	let amount_msat = args.get("amount_msat").and_then(|v| v.as_u64());
+	let route_parameters = build_route_parameters(&args);
+
+	let response = client
+		.unified_send(UnifiedSendRequest {
+			uri,
+			amount_msat,
 			route_parameters: Some(route_parameters),
 		})
 		.await
@@ -592,6 +680,37 @@ pub async fn handle_disconnect_peer(
 		.disconnect_peer(DisconnectPeerRequest { node_pubkey })
 		.await
 		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_list_peers(client: &LdkServerClient, _args: Value) -> Result<Value, String> {
+	let response = client.list_peers(ListPeersRequest {}).await.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_decode_invoice(client: &LdkServerClient, args: Value) -> Result<Value, String> {
+	let invoice = args
+		.get("invoice")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: invoice")?
+		.to_string();
+
+	let response = client
+		.decode_invoice(DecodeInvoiceRequest { invoice })
+		.await
+		.map_err(|e| e.message.clone())?;
+	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
+}
+
+pub async fn handle_decode_offer(client: &LdkServerClient, args: Value) -> Result<Value, String> {
+	let offer = args
+		.get("offer")
+		.and_then(|v| v.as_str())
+		.ok_or("Missing required parameter: offer")?
+		.to_string();
+
+	let response =
+		client.decode_offer(DecodeOfferRequest { offer }).await.map_err(|e| e.message.clone())?;
 	serde_json::to_value(response).map_err(|e| format!("Failed to serialize response: {e}"))
 }
 

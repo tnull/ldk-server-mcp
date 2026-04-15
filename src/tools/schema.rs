@@ -83,6 +83,69 @@ pub fn bolt11_receive_schema() -> Value {
 	})
 }
 
+pub fn bolt11_receive_for_hash_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {
+			"amount_msat": {
+				"type": "integer",
+				"description": "Amount in millisatoshis to request. If unset, a variable-amount invoice is returned"
+			},
+			"description": {
+				"type": "string",
+				"description": "Description to attach to the invoice. Mutually exclusive with description_hash"
+			},
+			"description_hash": {
+				"type": "string",
+				"description": "SHA-256 hash of the description (hex). Use instead of description for longer text. Mutually exclusive with description"
+			},
+			"expiry_secs": {
+				"type": "integer",
+				"description": "Invoice expiry time in seconds (default: 86400)"
+			},
+			"payment_hash": {
+				"type": "string",
+				"description": "The hex-encoded 32-byte payment hash to use for the invoice"
+			}
+		},
+		"required": ["payment_hash"]
+	})
+}
+
+pub fn bolt11_claim_for_hash_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {
+			"payment_hash": {
+				"type": "string",
+				"description": "The hex-encoded 32-byte payment hash. If provided, it will be used to verify that the preimage matches"
+			},
+			"claimable_amount_msat": {
+				"type": "integer",
+				"description": "The amount in millisatoshis that is claimable. If not provided, skips amount verification"
+			},
+			"preimage": {
+				"type": "string",
+				"description": "The hex-encoded 32-byte payment preimage"
+			}
+		},
+		"required": ["preimage"]
+	})
+}
+
+pub fn bolt11_fail_for_hash_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {
+			"payment_hash": {
+				"type": "string",
+				"description": "The hex-encoded 32-byte payment hash"
+			}
+		},
+		"required": ["payment_hash"]
+	})
+}
+
 pub fn bolt11_receive_via_jit_channel_schema() -> Value {
 	json!({
 		"type": "object",
@@ -266,6 +329,39 @@ pub fn spontaneous_send_schema() -> Value {
 			}
 		},
 		"required": ["amount_msat", "node_id"]
+	})
+}
+
+pub fn unified_send_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {
+			"uri": {
+				"type": "string",
+				"description": "A BIP 21 URI or BIP 353 Human-Readable Name to pay"
+			},
+			"amount_msat": {
+				"type": "integer",
+				"description": "The amount in millisatoshis to send. Required for zero-amount or variable-amount URIs"
+			},
+			"max_total_routing_fee_msat": {
+				"type": "integer",
+				"description": "Maximum total routing fee in millisatoshis. Defaults to 1% of payment + 50 sats"
+			},
+			"max_total_cltv_expiry_delta": {
+				"type": "integer",
+				"description": "Maximum total CLTV delta for the route (default: 1008)"
+			},
+			"max_path_count": {
+				"type": "integer",
+				"description": "Maximum number of paths for MPP payments (default: 10)"
+			},
+			"max_channel_saturation_power_of_half": {
+				"type": "integer",
+				"description": "Maximum channel capacity share as power of 1/2 (default: 2)"
+			}
+		},
+		"required": ["uri"]
 	})
 }
 
@@ -501,6 +597,40 @@ pub fn disconnect_peer_schema() -> Value {
 			}
 		},
 		"required": ["node_pubkey"]
+	})
+}
+
+pub fn list_peers_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {},
+		"required": []
+	})
+}
+
+pub fn decode_invoice_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {
+			"invoice": {
+				"type": "string",
+				"description": "The BOLT11 invoice string to decode"
+			}
+		},
+		"required": ["invoice"]
+	})
+}
+
+pub fn decode_offer_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {
+			"offer": {
+				"type": "string",
+				"description": "The BOLT12 offer string to decode"
+			}
+		},
+		"required": ["offer"]
 	})
 }
 

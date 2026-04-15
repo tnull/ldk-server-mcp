@@ -110,6 +110,30 @@ pub fn build_tool_registry() -> ToolRegistry {
 
 	register(
 		&mut tools,
+		"bolt11_receive_for_hash",
+		"Create a BOLT11 Lightning invoice for a specific payment hash",
+		schema::bolt11_receive_for_hash_schema(),
+		|c, a| Box::pin(handlers::handle_bolt11_receive_for_hash(c, a)),
+	);
+
+	register(
+		&mut tools,
+		"bolt11_claim_for_hash",
+		"Manually claim a BOLT11 payment for a specific payment hash",
+		schema::bolt11_claim_for_hash_schema(),
+		|c, a| Box::pin(handlers::handle_bolt11_claim_for_hash(c, a)),
+	);
+
+	register(
+		&mut tools,
+		"bolt11_fail_for_hash",
+		"Manually fail a BOLT11 payment for a specific payment hash",
+		schema::bolt11_fail_for_hash_schema(),
+		|c, a| Box::pin(handlers::handle_bolt11_fail_for_hash(c, a)),
+	);
+
+	register(
+		&mut tools,
 		"bolt11_receive_via_jit_channel",
 		"Create a BOLT11 Lightning invoice to receive via an LSPS2 JIT channel",
 		schema::bolt11_receive_via_jit_channel_schema(),
@@ -154,6 +178,14 @@ pub fn build_tool_registry() -> ToolRegistry {
 		"Send a spontaneous (keysend) payment to a Lightning node",
 		schema::spontaneous_send_schema(),
 		|c, a| Box::pin(handlers::handle_spontaneous_send(c, a)),
+	);
+
+	register(
+		&mut tools,
+		"unified_send",
+		"Send a payment given a BIP 21 URI or BIP 353 Human-Readable Name",
+		schema::unified_send_schema(),
+		|c, a| Box::pin(handlers::handle_unified_send(c, a)),
 	);
 
 	register(
@@ -250,6 +282,30 @@ pub fn build_tool_registry() -> ToolRegistry {
 		"Disconnect from a Lightning peer",
 		schema::disconnect_peer_schema(),
 		|c, a| Box::pin(handlers::handle_disconnect_peer(c, a)),
+	);
+
+	register(
+		&mut tools,
+		"list_peers",
+		"List all known Lightning peers",
+		schema::list_peers_schema(),
+		|c, a| Box::pin(handlers::handle_list_peers(c, a)),
+	);
+
+	register(
+		&mut tools,
+		"decode_invoice",
+		"Decode a BOLT11 invoice and return its parsed fields",
+		schema::decode_invoice_schema(),
+		|c, a| Box::pin(handlers::handle_decode_invoice(c, a)),
+	);
+
+	register(
+		&mut tools,
+		"decode_offer",
+		"Decode a BOLT12 offer and return its parsed fields",
+		schema::decode_offer_schema(),
+		|c, a| Box::pin(handlers::handle_decode_offer(c, a)),
 	);
 
 	register(
