@@ -83,6 +83,60 @@ pub fn bolt11_receive_schema() -> Value {
 	})
 }
 
+pub fn bolt11_receive_via_jit_channel_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {
+			"amount_msat": {
+				"type": "integer",
+				"description": "The amount in millisatoshis to request"
+			},
+			"description": {
+				"type": "string",
+				"description": "Description to attach to the invoice. Mutually exclusive with description_hash"
+			},
+			"description_hash": {
+				"type": "string",
+				"description": "SHA-256 hash of the description (hex). Use instead of description for longer text. Mutually exclusive with description"
+			},
+			"expiry_secs": {
+				"type": "integer",
+				"description": "Invoice expiry time in seconds (default: 86400)"
+			},
+			"max_total_lsp_fee_limit_msat": {
+				"type": "integer",
+				"description": "Optional upper bound for the total fee an LSP may deduct when opening the JIT channel"
+			}
+		},
+		"required": ["amount_msat"]
+	})
+}
+
+pub fn bolt11_receive_variable_amount_via_jit_channel_schema() -> Value {
+	json!({
+		"type": "object",
+		"properties": {
+			"description": {
+				"type": "string",
+				"description": "Description to attach to the invoice. Mutually exclusive with description_hash"
+			},
+			"description_hash": {
+				"type": "string",
+				"description": "SHA-256 hash of the description (hex). Use instead of description for longer text. Mutually exclusive with description"
+			},
+			"expiry_secs": {
+				"type": "integer",
+				"description": "Invoice expiry time in seconds (default: 86400)"
+			},
+			"max_proportional_lsp_fee_limit_ppm_msat": {
+				"type": "integer",
+				"description": "Optional upper bound for the proportional fee, in parts-per-million millisatoshis, that an LSP may deduct when opening the JIT channel"
+			}
+		},
+		"required": []
+	})
+}
+
 pub fn bolt11_send_schema() -> Value {
 	json!({
 		"type": "object",
