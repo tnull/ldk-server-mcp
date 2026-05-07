@@ -1,5 +1,7 @@
 # ldk-server-mcp
 
+**NOTE:** This repo has been moved into the `ldk-server` workspace and is hence archived.
+
 An [MCP (Model Context Protocol)](https://spec.modelcontextprotocol.io/) server that exposes [LDK Server](https://github.com/lightningdevkit/ldk-server) operations as tools for AI agents. It communicates over JSON-RPC 2.0 via stdio and connects to an LDK Server instance over TLS using the [`ldk-server-client`](https://github.com/lightningdevkit/ldk-server/tree/main/ldk-server-client) library.
 
 ## Building
